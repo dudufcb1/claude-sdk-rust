@@ -154,13 +154,18 @@ where
     where
         S: Stream<Item = Value> + Unpin + Send,
     {
+        let mut wrote_any = false;
         while let Some(message) = input.next().await {
             if self.inner.closed.load(Ordering::SeqCst) {
                 break;
             }
             self.inner.transport.write(&message).await?;
+            wrote_any = true;
         }
-        self.inner.transport.end_input().await
+        if wrote_any {
+            self.inner.transport.end_input().await?;
+        }
+        Ok(())
     }
 
     /// Retrieve the next SDK message, if available.
