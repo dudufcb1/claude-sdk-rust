@@ -173,10 +173,13 @@ impl Transport for SubprocessCliTransport {
         let stdin_arc = Arc::new(Mutex::new(stdin));
 
         if matches!(self.inner.prompt, PromptMode::Text(_)) {
+            log::debug!("[transport::connect] Text prompt mode - closing stdin immediately");
             let mut guard = stdin_arc.lock().await;
             if let Some(mut stdin) = guard.take() {
                 let _ = stdin.shutdown().await;
             }
+        } else {
+            log::debug!("[transport::connect] Streaming mode - keeping stdin open for stream_input");
         }
 
         let (tx, rx) = mpsc::channel(64);
@@ -224,13 +227,16 @@ impl Transport for SubprocessCliTransport {
         {
             let mut stdin_guard = handles.0.lock().await;
             if let Some(stdin) = stdin_guard.as_mut() {
+                log::debug!("[transport::write] stdin available, writing {} bytes", line.len());
                 stdin.write_all(line.as_bytes()).await.map_err(|err| {
                     CliConnectionError::new(format!("Failed to write to process stdin: {err}"))
                 })?;
                 stdin.flush().await.map_err(|err| {
                     CliConnectionError::new(format!("Failed to flush process stdin: {err}"))
                 })?;
+                log::debug!("[transport::write] write successful");
             } else {
+                log::error!("[transport::write] stdin is None - was already closed!");
                 return Err(SdkError::from(CliConnectionError::new(
                     "Process stdin is not available",
                 )));
@@ -278,6 +284,7 @@ impl Transport for SubprocessCliTransport {
     }
 
     async fn end_input(&self) -> Result<(), SdkError> {
+        log::debug!("[transport::end_input] Called - will close stdin");
         let handles = {
             let child_guard = self.inner.child.lock().await;
             child_guard
@@ -288,10 +295,14 @@ impl Transport for SubprocessCliTransport {
 
         let mut stdin_guard = handles.lock().await;
         if let Some(mut stdin) = stdin_guard.take() {
+            log::debug!("[transport::end_input] Shutting down stdin now");
             stdin
                 .shutdown()
                 .await
                 .map_err(|err| CliConnectionError::new(format!("Failed to close stdin: {err}")))?;
+            log::debug!("[transport::end_input] stdin closed successfully");
+        } else {
+            log::warn!("[transport::end_input] stdin was already None");
         }
 
         Ok(())

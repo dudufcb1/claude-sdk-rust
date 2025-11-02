@@ -154,17 +154,24 @@ where
     where
         S: Stream<Item = Value> + Unpin + Send,
     {
+        log::debug!("[stream_input] Starting stream consumption");
         let mut wrote_any = false;
         while let Some(message) = input.next().await {
             if self.inner.closed.load(Ordering::SeqCst) {
+                log::debug!("[stream_input] Query closed, breaking");
                 break;
             }
+            log::debug!("[stream_input] Writing message to transport");
             self.inner.transport.write(&message).await?;
             wrote_any = true;
         }
         if wrote_any {
+            log::debug!("[stream_input] Wrote messages, calling end_input");
             self.inner.transport.end_input().await?;
+        } else {
+            log::debug!("[stream_input] No messages written, keeping stdin open");
         }
+        log::debug!("[stream_input] Stream input completed");
         Ok(())
     }
 
