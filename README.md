@@ -68,6 +68,48 @@ async fn main() -> anyhow::Result<()> {
 
 See [`examples/`](examples/) for full recipes (hooks, agents, plugins, streaming control, partial messages, etc.).
 
+## Permissions and directory access
+
+Claude Code enforces a permission system for tool usage and filesystem access. Configure it via `ClaudeAgentOptions`:
+
+- Set a session permission mode via `ClaudeAgentOptions.permission_mode` (see `PermissionMode` in `src/permission.rs`).
+- Allow additional directories for tool access via `ClaudeAgentOptions.add_dirs` (maps to repeated `--add-dir`).
+- Change the CLI working directory via `ClaudeAgentOptions.cwd`.
+- Pass raw Claude Code CLI flags via `ClaudeAgentOptions.extra_args` (maps to `--{flag}` with optional value).
+
+Example (bypass prompts and allow a repo directory):
+
+```rust
+use std::path::PathBuf;
+
+use sdk_claude_rust::config::ClaudeAgentOptions;
+use sdk_claude_rust::permission::PermissionMode;
+
+let options = ClaudeAgentOptions {
+    permission_mode: Some(PermissionMode::BypassPermissions),
+    add_dirs: vec![PathBuf::from("/home/eduardo/n8ngod")],
+    ..Default::default()
+};
+```
+
+Example (pass CLI flags not exposed by the Rust types):
+
+```rust
+use std::collections::HashMap;
+
+use sdk_claude_rust::config::ClaudeAgentOptions;
+
+let mut extra_args = HashMap::new();
+extra_args.insert("dangerously-skip-permissions".to_string(), None);
+extra_args.insert("permission-mode".to_string(), Some("dontAsk".to_string()));
+
+let options = ClaudeAgentOptions {
+    permission_mode: None,
+    extra_args,
+    ..Default::default()
+};
+```
+
 ## Tests and Quality Gates
 
 - `cargo fmt`
