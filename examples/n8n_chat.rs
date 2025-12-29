@@ -54,13 +54,9 @@ When useful, include concrete node configuration guidance (field names and examp
                     for block in assistant.content {
                         match block {
                             ContentBlock::Text(text) => println!("{}", text.text),
-                            ContentBlock::ToolUse(tool) => {
-                                println!("[tool_use] {} {}", tool.name, tool.id);
-                            }
-                            ContentBlock::ToolResult(result) => {
-                                println!("[tool_result] {} {:?}", result.tool_use_id, result.content);
-                            }
-                            ContentBlock::Thinking(_) => {}
+                            ContentBlock::Thinking(_)
+                            | ContentBlock::ToolUse(_)
+                            | ContentBlock::ToolResult(_) => {}
                         }
                     }
                 }
