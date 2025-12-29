@@ -469,20 +469,15 @@ impl Inner {
             }
         }
 
-        let sources_value = self
-            .options
-            .setting_sources
-            .as_ref()
-            .map(|sources| {
-                sources
-                    .iter()
-                    .map(SettingSource::as_str)
-                    .collect::<Vec<_>>()
-                    .join(",")
-            })
-            .unwrap_or_default();
-        args.push(OsString::from("--setting-sources"));
-        args.push(sources_value.into());
+        if let Some(sources) = self.options.setting_sources.as_ref() {
+            let sources_value = sources
+                .iter()
+                .map(SettingSource::as_str)
+                .collect::<Vec<_>>()
+                .join(",");
+            args.push(OsString::from("--setting-sources"));
+            args.push(sources_value.into());
+        }
 
         for plugin in &self.options.plugins {
             match plugin.kind {
