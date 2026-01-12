@@ -14,13 +14,49 @@ Rust-native SDK for automating workflows against the Claude Code CLI. This crate
 - MCP (Model Context Protocol) server helpers for registering in-process tools.
 - Permission hooks, stderr callbacks, and partial message support consistent with the CLI UX.
 
+## Quick Start
+
+```bash
+# Clone and setup
+git clone https://github.com/dudufcb1/claude-sdk-rust.git
+cd claude-sdk-rust
+./scripts/initial-setup.sh
+
+# Edit your credentials
+nano .env
+
+# Run an example
+cargo run --example mcp_calculator
+```
+
 ## Getting Started
 
 ### Prerequisites
 
 - Rust 1.75 or newer (via [rustup](https://rustup.rs/)).
-- Claude Code CLI installed and accessible on `PATH`.
-- `ANTHROPIC_API_KEY` scoped for the environments you plan to target.
+- Node.js 20+ (via [nodejs.org](https://nodejs.org/)).
+- Claude Code CLI: `npm install -g @anthropic-ai/claude-code`
+
+### Configuration
+
+Create a `.env` file in the project root (or copy from `.env.example`):
+
+```bash
+cp .env.example .env
+```
+
+Configure your credentials:
+
+```env
+# Required
+ANTHROPIC_API_KEY=sk-ant-xxxxx
+
+# Optional - for proxy/gateway usage
+ANTHROPIC_BASE_URL=https://your-proxy.example.com/v1
+
+# Optional - default model
+ANTHROPIC_MODEL=claude-sonnet-4-20250514
+```
 
 ### Add as a dependency
 
@@ -42,19 +78,27 @@ sdk_claude_rust = { path = "../sdk-claude-rust" }
 
 ```rust
 use sdk_claude_rust::client::ClaudeSdkClient;
-use sdk_claude_rust::query::query;
+use sdk_claude_rust::env::options_from_env;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    // Simple streaming query using the high level helper
-    let mut stream = query("Explain Rust ownership in two sentences.", None, None).await?;
+    // Load credentials from .env file
+    let options = options_from_env(None)?;
 
-    while let Some(chunk) = stream.next().await {
-        match chunk? {
-            sdk_claude_rust::message::Message::Assistant(msg) => {
-                for block in msg.content {
-                    if let sdk_claude_rust::message::ContentBlock::Text(text) = block {
-                        println!("{}", text.text);
+    let mut client = ClaudeSdkClient::new(Some(options), None);
+    client.connect(None).await?;
+
+    client.query("Explain Rust ownership in two sentences.", "demo").await?;
+
+    let stream = client.receive_response()?;
+    futures::pin_mut!(stream);
+
+    while let Some(msg) = stream.next().await {
+        match msg? {
+            sdk_claude_rust::message::Message::Assistant(m) => {
+                for block in m.content {
+                    if let sdk_claude_rust::message::ContentBlock::Text(t) = block {
+                        println!("{}", t.text);
                     }
                 }
             }
@@ -62,6 +106,7 @@ async fn main() -> anyhow::Result<()> {
         }
     }
 
+    client.disconnect().await?;
     Ok(())
 }
 ```

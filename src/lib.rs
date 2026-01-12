@@ -1,5 +1,6 @@
 pub mod client;
 pub mod config;
+pub mod env;
 pub mod error;
 pub mod hooks;
 pub mod internal;
